@@ -6,6 +6,13 @@ import cohere
 import fitz # An alias for PyMuPDF
 import pandas as pd
 import csv
+from PIL import Image
+import datetime
+import re
+
+
+
+image = Image.open('docs/logo.png')
 
 csv_path = 'docs/261103@hkis.edu/hk.ics_export.csv'
 
@@ -32,18 +39,17 @@ def csv_to_documents(csv_path):
      
       # parse CSV
       
-      start_time = row["Start Time"] 
+      title = row["Start Time"] 
+      content = row["Event Name"] 
       end_time = row["End Time"] 
-      content = row["Event Name"]  
       location = row["Location"]
-      organizer = row["Organizer"]
-      attendees = row["Attendees"]
-      meeting_link = row["Meeting Link"]
       description = row["Description"]
       organizer = row["Organizer"]
+      attendees = row["Attendees"]
 
 
-      document = {"Start Time": start_time,"End Time": end_time, "Event Name": content,"Location": location, "Organizer": organizer, "Attendees": attendees, "Meeting Link": meeting_link,"Description":description,"Organizer":organizer}
+
+      document = {"Start Time": title, "Event Name": content,"End Time": end_time,"Location": location,"Description":description, "Organizer":organizer,"Attendees":attendees}
 
       documents.append(document)
       
@@ -75,35 +81,57 @@ def pdf_to_documents(pdf_path):
     return documents
 # Add a sidebar to the Streamlit app
 with st.sidebar:
+    st.title("🗓️📝 Task Sync 🎯✅")
+    st.sidebar.image(image, width=150)
+    d = st.date_input("What day is it today?", value=None)
+    st.write("Today is:", d)
+    t = st.time_input("What time is it right now", value=None)
+    st.write("The time is:", t)
+    cohere_api_key = st.text_input("Enter Cohere API Key")
+    client = cohere.Client(api_key=cohere_api_key)
+    cohere_api_key = st.text_input(
+    "API Key", 
+    type="password",
+    key="cohere_api_key"
+  )
+
+  st.markdown("[Get API key](link)")
+
+
+
     if hasattr(st, "secrets"):
         cohere_api_key = st.secrets["COHERE_API_KEY"]
         # st.write("API key found.")
+        
+
     else:
         cohere_api_key = st.text_input("Cohere API Key", key="chatbot_api_key", type="password")
         st.markdown("[Get a Cohere API Key](https://dashboard.cohere.ai/api-keys)")
     
     my_documents = []
-    selected_doc = st.selectbox("Select your timetable", ["My schedule this week", "My schedule next week"])
-    if selected_doc == "My schedule next week":
+    selected_doc = st.selectbox("Select your timetable", ["My schedule this week", "Person#2 schedule next week"])
+    if selected_doc == "My schedule this week":
         my_documents = csv_to_documents('docs/csv_file.csv')
-    elif selected_doc == "Next week schedule":    
+    elif selected_doc == "Person#2 schedule next week":    
         my_documents = csv_to_documents('docs/csv_file.csv')
     else:
         my_documents = csv_to_documents('docs/csv_file.csv')
 
     # st.write(f"Selected document: {selected_doc}")
-
-# Set the title of the Streamlit app
 st.title("🗓️📝 Task Sync 🎯✅")
+# Set the title of the Streamlit app
+
+
 
 # Initialize the chat history with a greeting message
 if "messages" not in st.session_state:
-    st.session_state["messages"] = [{"role": "assistant", "text": "Hi, I'm task sync my job is to help you organize and remind you what you need to do today.Please help me by telling me what day is it today"}]
+    st.session_state["messages"] = [{"role": "assistant", "text": "Hi, I'm task sync my job is to help you organize and remind you what you need to do today.Please input your date and time in the sidebar so i can help you!!"}]
 
 # Display the chat messages
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["text"])
 
+  
 # Get user input
 if prompt := st.chat_input():
     # Stop responding if the user has not added the Cohere API key
@@ -117,8 +145,8 @@ if prompt := st.chat_input():
     # Display the user message in the chat window
     st.chat_message("user").write(prompt)
 
-    preamble = """You are task sync and your job is to tell the user what they need to do today, first use their first response
-    on what day it is please match your response according to the start_time row date and then give the user the content as well as other information such as location,description, organizer etc. 
+    preamble = f"""You are task sync and your job is to tell the user what they need to do today,according to the date {d} and {t}chosen please match your response according to the title Start Time row date and then answer the users questions using the content Event name as well as
+      other information such as location,description, organizer as requested by the user. Also please list your response in chrnological order. Only include text in plain english, time, or room number that are are answering the users question
     """
 
     # Send the user message and pdf text to the model and capture the response
